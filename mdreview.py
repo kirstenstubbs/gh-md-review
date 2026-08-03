@@ -29,8 +29,10 @@ Requires: python-markdown, lxml.  Optional: gh, for PR auto-detection.
     pip install markdown lxml
 """
 import argparse
+import csv as csvlib
 import difflib
 import html as htmllib
+import io
 import json
 import os
 import re
@@ -244,7 +246,7 @@ def commentable_lines(base, head, path):
     return lines
 
 
-_MD_EXTS = (".md", ".markdown", ".mdx")
+_MD_EXTS = (".md", ".markdown", ".mdx", ".csv")
 
 def all_markdown(ref=None):
     if ref is None:
@@ -252,6 +254,29 @@ def all_markdown(ref=None):
     else:
         out = git("ls-tree", "-r", "--name-only", ref)
     return sorted(p for p in out.splitlines() if p.endswith(_MD_EXTS))
+
+
+def render_csv(text):
+    rows = list(csvlib.reader(io.StringIO(text or "")))
+    if not rows:
+        return "<p><em>Empty file.</em></p>"
+    esc = htmllib.escape
+    head = "".join(f"<th>{esc(c)}</th>" for c in rows[0])
+    body = "".join(
+        "<tr>" + "".join(f"<td>{esc(c)}</td>" for c in row) + "</tr>"
+        for row in rows[1:] if any(c.strip() for c in row)
+    )
+    return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
+
+
+def build_csv_blocks(text):
+    lines = (text or "").count("\n") + 1
+    return [{
+        "state": "same", "kind": "table",
+        "html": render_csv(text), "src": text,
+        "line": 1, "end": lines,
+        "side": "RIGHT", "anchor": 1, "can": True,
+    }]
 
 
 def build_view_blocks(text):
@@ -631,6 +656,9 @@ body.only-changes .blk.same{display:none}
   vertical-align:top}
 .doc th{background:var(--panel-2);font-weight:600}
 .doc hr{border:0;border-top:1px solid var(--line);margin:1.8em 0}
+.doc table{font-variant-numeric:tabular-nums}
+.doc tbody tr:nth-child(even){background:rgba(255,255,255,.03)}
+.doc tbody tr:hover{background:rgba(88,166,255,.06)}
 
 /* ---- view mode: continuous document reader ---- */
 body.view-mode .blk.same{background:transparent;margin-bottom:0;
@@ -1151,7 +1179,10 @@ def main():
         files = []
         for path in paths:
             text = read_blob(blob_ref, path) or ""
-            blocks = build_view_blocks(text)
+            if path.endswith(".csv"):
+                blocks = build_csv_blocks(text)
+            else:
+                blocks = build_view_blocks(text)
             lines = text.count("\n") + 1 if text else 0
             files.append({"path": path, "status": "M", "blocks": blocks,
                           "added": lines, "removed": 0})
