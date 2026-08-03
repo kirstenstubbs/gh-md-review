@@ -1242,7 +1242,9 @@ def main():
                     view_ref = "origin/" + view_ref
             if view_ref and view_ref.startswith("origin/"):
                 branch_name = view_ref[len("origin/"):]
-                git("fetch", "origin", branch_name, check=False)
+                git("fetch", "origin",
+                    f"refs/heads/{branch_name}:refs/remotes/origin/{branch_name}",
+                    check=False)
             blob_ref = view_ref or WORKTREE
             paths = all_markdown(ref=view_ref)
             if not paths:
