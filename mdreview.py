@@ -152,7 +152,7 @@ def _make_handler(render_fn):
     return Handler
 
 
-def serve(render_fn, no_open=False):
+def serve(render_fn, no_open=False, initial_ref=None):
     port = _free_port()
     httpd = HTTPServer(("127.0.0.1", port), _make_handler(render_fn))
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -160,7 +160,8 @@ def serve(render_fn, no_open=False):
     url = f"http://127.0.0.1:{port}"
     print(f"Serving at {url}  (Ctrl+C to stop)", flush=True)
     if not no_open:
-        webbrowser.open(url)
+        open_url = url + "/?ref=" + urllib.parse.quote(initial_ref, safe="") if initial_ref else url
+        webbrowser.open(open_url)
     try:
         thread.join()
     except KeyboardInterrupt:
@@ -1235,6 +1236,9 @@ def main():
 
     if args.view:
         def render_view(view_ref):
+            if view_ref and view_ref.startswith("origin/"):
+                branch_name = view_ref[len("origin/"):]
+                git("fetch", "origin", branch_name, check=False)
             blob_ref = view_ref or WORKTREE
             paths = all_markdown(ref=view_ref)
             if not paths:
@@ -1269,7 +1273,7 @@ def main():
         print("Serving — Ctrl+C to stop")
         if pr and slug:
             print(f"review target: {slug}#{pr}")
-        serve(render_view, no_open=args.no_open)
+        serve(render_view, no_open=args.no_open, initial_ref=initial_ref)
         return
     else:
         base, head = resolve_refs(args.spec, args.commit)
