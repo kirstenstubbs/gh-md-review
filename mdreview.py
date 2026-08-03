@@ -41,6 +41,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -68,19 +69,39 @@ def _free_port():
         return s.getsockname()[1]
 
 
-def _make_handler(html):
+def _remote_branches():
+    out = git("ls-remote", "--heads", "origin", check=False)
+    branches = []
+    for line in out.splitlines():
+        parts = line.split("\t", 1)
+        if len(parts) == 2:
+            ref = parts[1].strip()
+            if ref.startswith("refs/heads/"):
+                branches.append("origin/" + ref[len("refs/heads/"):])
+    return sorted(branches)
+
+
+def _make_handler(render_fn):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            if self.path == "/":
+            path, _, qs = self.path.partition("?")
+            if path == "/branches":
+                self._json(200, _remote_branches())
+                return
+            if path == "/":
+                ref = urllib.parse.parse_qs(qs).get("ref", [None])[0]
+                html, err = render_fn(ref)
+                if err:
+                    html = f"<html><body><p>{htmllib.escape(err)}</p></body></html>"
                 data = html.encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
-            else:
-                self.send_response(404)
-                self.end_headers()
+                return
+            self.send_response(404)
+            self.end_headers()
 
         def do_POST(self):
             if self.path != "/post":
@@ -112,7 +133,10 @@ def _make_handler(html):
                 self._reply(500, r.stderr.strip() or "gh api call failed.")
 
         def _reply(self, code, msg):
-            data = json.dumps({"message": msg}).encode("utf-8")
+            self._json(code, {"message": msg})
+
+        def _json(self, code, obj):
+            data = json.dumps(obj).encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
@@ -125,9 +149,9 @@ def _make_handler(html):
     return Handler
 
 
-def serve(html, no_open=False):
+def serve(render_fn, no_open=False):
     port = _free_port()
-    httpd = HTTPServer(("127.0.0.1", port), _make_handler(html))
+    httpd = HTTPServer(("127.0.0.1", port), _make_handler(render_fn))
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     url = f"http://127.0.0.1:{port}"
@@ -250,7 +274,7 @@ _MD_EXTS = (".md", ".markdown", ".mdx", ".csv")
 
 def all_markdown(ref=None):
     if ref is None:
-        out = git("ls-files", "--", "*.md", "*.markdown", "*.mdx")
+        out = git("ls-files", "--", "*.md", "*.markdown", "*.mdx", "*.csv")
     else:
         out = git("ls-tree", "-r", "--name-only", ref)
     return sorted(p for p in out.splitlines() if p.endswith(_MD_EXTS))
@@ -473,6 +497,13 @@ aside{background:var(--panel);border-right:1px solid var(--line);
 .meta .range{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);
   word-break:break-all;line-height:1.5}
 .tally{margin-top:8px;font-family:var(--mono);font-size:11.5px;display:flex;gap:8px}
+.branch-sel-wrap{padding:10px 14px;border-bottom:1px solid var(--line)}
+.branch-sel{width:100%;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:5px;color:var(--ink);font-size:11.5px;padding:5px 8px;
+  cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;padding-right:24px}
+.branch-sel:focus{outline:2px solid var(--accent);outline-offset:1px}
 .tally .p{color:var(--add)} .tally .m{color:var(--del)}
 .target-note{margin-top:10px;font-size:11px;line-height:1.55;color:var(--ink-faint)}
 .target-note b{color:var(--ink-dim);font-weight:600}
@@ -964,6 +995,32 @@ function commentAtCursor(){
   if(el) openEditor(+el.id.slice(1));
 }
 
+/* ---------- branch selector ---------- */
+(async ()=>{
+  const wrap = $('#branch-sel-wrap'), sel = $('#branch-sel');
+  if(!wrap || !sel) return;
+  try {
+    const branches = await fetch('/branches').then(r=>r.json());
+    if(!branches.length) return;
+    const cur = new URLSearchParams(location.search).get('ref') || '';
+    branches.forEach(b=>{
+      const o = document.createElement('option');
+      o.value = b; o.textContent = b;
+      if(b === cur) o.selected = true;
+      sel.appendChild(o);
+    });
+    if(cur && !sel.value) {
+      const o = document.createElement('option');
+      o.value = cur; o.textContent = cur; o.selected = true;
+      sel.insertBefore(o, sel.firstChild);
+    }
+    wrap.style.display = '';
+    sel.addEventListener('change', ()=>{
+      location.href = '/?ref=' + encodeURIComponent(sel.value);
+    });
+  } catch(e) { /* server not running or no branches */ }
+})();
+
 /* ---------- wire up ---------- */
 document.addEventListener('DOMContentLoaded', ()=>{
   load();
@@ -1042,6 +1099,9 @@ PAGE = """<!doctype html>
     <div class="range">__RANGE__</div>
     <div class="tally"><span class="p">+__ADD__</span> <span class="m">-__DEL__</span></div>
     <div class="target-note __TGCLASS__">__TARGET__</div>
+  </div>
+  <div class="branch-sel-wrap" id="branch-sel-wrap" style="display:none">
+    <select id="branch-sel" class="branch-sel"></select>
   </div>
   <div class="files-hd">__NFILES__</div>
   __FILEBTNS__
@@ -1171,39 +1231,42 @@ def main():
         _, pr_head = detect_pr(branch)
 
     if args.view:
-        view_ref = args.spec  # e.g. origin/some-branch, or None for worktree
-        blob_ref = view_ref or WORKTREE
-        paths = all_markdown(ref=view_ref)
-        if not paths:
-            sys.exit(f"No Markdown files found in {view_ref or 'working tree'}.")
-        files = []
-        for path in paths:
-            text = read_blob(blob_ref, path) or ""
-            if path.endswith(".csv"):
-                blocks = build_csv_blocks(text)
-            else:
-                blocks = build_view_blocks(text)
-            lines = text.count("\n") + 1 if text else 0
-            files.append({"path": path, "status": "M", "blocks": blocks,
-                          "added": lines, "removed": 0})
-        heading = "Markdown viewer"
-        range_label = view_ref or branch
-        commit = git("rev-parse", view_ref or "HEAD", check=False).strip() or None
-        ref_label = htmllib.escape(view_ref or branch)
-        target = f"Viewing <b>{ref_label}</b>."
-        target_ok = True
-        if slug and pr:
-            target += f" PR: <b>{htmllib.escape(slug)}#{pr}</b>."
-        review = {"key": f"{slug or 'repo'}:view:{range_label}", "repo": slug,
-                  "pr": pr, "commit": commit, "summary": args.summary,
-                  "branch": branch}
-        page = build_page(files, heading, range_label, review, target, target_ok,
-                          view_mode=True)
-        n_ok = sum(1 for f in files for b in f["blocks"] if b.get("can"))
-        print(f"{len(files)} file(s), {n_ok} commentable blocks")
+        def render_view(view_ref):
+            blob_ref = view_ref or WORKTREE
+            paths = all_markdown(ref=view_ref)
+            if not paths:
+                return None, f"No files found in {view_ref or 'working tree'}."
+            files = []
+            for path in paths:
+                text = read_blob(blob_ref, path) or ""
+                if path.endswith(".csv"):
+                    blocks = build_csv_blocks(text)
+                else:
+                    blocks = build_view_blocks(text)
+                lines = text.count("\n") + 1 if text else 0
+                files.append({"path": path, "status": "M", "blocks": blocks,
+                              "added": lines, "removed": 0})
+            range_label = view_ref or branch
+            commit = git("rev-parse", view_ref or "HEAD", check=False).strip() or None
+            ref_label = htmllib.escape(view_ref or branch)
+            target = f"Viewing <b>{ref_label}</b>."
+            if slug and pr:
+                target += f" PR: <b>{htmllib.escape(slug)}#{pr}</b>."
+            review = {"key": f"{slug or 'repo'}:view:{range_label}", "repo": slug,
+                      "pr": pr, "commit": commit, "summary": args.summary,
+                      "branch": branch}
+            page = build_page(files, "Planning review", range_label, review,
+                              target, True, view_mode=True)
+            return page, None
+
+        initial_ref = args.spec
+        _, err = render_view(initial_ref)
+        if err:
+            sys.exit(err)
+        print("Serving — Ctrl+C to stop")
         if pr and slug:
-            print(f"review target: {slug}#{pr} @ {(commit or 'unpushed')[:9]}")
-        serve(page, no_open=args.no_open)
+            print(f"review target: {slug}#{pr}")
+        serve(render_view, no_open=args.no_open)
         return
     else:
         base, head = resolve_refs(args.spec, args.commit)
