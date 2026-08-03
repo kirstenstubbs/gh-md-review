@@ -1236,6 +1236,10 @@ def main():
 
     if args.view:
         def render_view(view_ref):
+            if view_ref and not view_ref.startswith("origin/"):
+                resolved = git("rev-parse", "--verify", view_ref, check=False).strip()
+                if not resolved:
+                    view_ref = "origin/" + view_ref
             if view_ref and view_ref.startswith("origin/"):
                 branch_name = view_ref[len("origin/"):]
                 git("fetch", "origin", branch_name, check=False)
@@ -1267,6 +1271,9 @@ def main():
             return page, None
 
         initial_ref = args.spec
+        if initial_ref and not initial_ref.startswith("origin/"):
+            if not git("rev-parse", "--verify", initial_ref, check=False).strip():
+                initial_ref = "origin/" + initial_ref
         _, err = render_view(initial_ref)
         if err:
             sys.exit(err)
