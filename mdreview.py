@@ -48,7 +48,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 try:
     import markdown
 except ImportError:
-    sys.exit("Missing dependency: pip install markdown lxml")
+    import subprocess as _sp
+    print("Installing dependencies...", flush=True)
+    _sp.check_call([sys.executable, "-m", "pip", "install", "markdown", "lxml"])
+    import markdown
 
 try:
     from lxml.html.diff import htmldiff
