@@ -17,7 +17,7 @@ Usage
     mdreview main...HEAD              explicit range
     mdreview --commit 58c5e9a         one commit
     mdreview main --pr 214            name the PR the export should target
-    mdreview main --summary "Doc pass on MM-8141"
+    mdreview main --summary "Doc review"
     mdreview main --no-breaks         soft-wrap newlines, like github.com renders
     mdreview main -o review.html --no-open
 
