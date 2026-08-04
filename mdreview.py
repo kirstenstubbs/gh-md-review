@@ -502,6 +502,7 @@ aside{background:var(--panel);border-right:1px solid var(--line);
   word-break:break-all;line-height:1.5}
 .tally{margin-top:8px;font-family:var(--mono);font-size:11.5px;display:flex;gap:8px}
 .branch-sel-wrap{padding:10px 14px;border-bottom:1px solid var(--line)}
+body.no-branch-sel .branch-sel-wrap{display:none!important}
 .branch-sel{width:100%;background:var(--panel-2);border:1px solid var(--line);
   border-radius:5px;color:var(--ink);font-size:11.5px;padding:5px 8px;
   cursor:pointer;appearance:none;
@@ -1169,7 +1170,7 @@ def build_page(files, heading, range_label, review, target_note, target_ok,
     slim = [{k: v for k, v in f.items() if k != "status"} for f in files]
     js = (JS.replace("__FILES__", json.dumps(slim))
             .replace("__REVIEW__", json.dumps(review)))
-    body_cls = "hide-del hide-removed" + (" view-mode" if view_mode else "")
+    body_cls = "hide-del hide-removed" + (" view-mode" if view_mode else " no-branch-sel")
     files_label = (f"{n} file{'' if n == 1 else 's'}" if view_mode
                    else f"{n} changed file{'' if n == 1 else 's'}")
     return (PAGE
