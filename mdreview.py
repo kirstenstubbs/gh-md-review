@@ -1202,11 +1202,13 @@ def remote_slug():
     return m.group(1) if m else None
 
 
-def detect_pr(branch):
-    """Ask gh for the PR number if gh is installed and authenticated."""
+def detect_pr(branch=None):
+    """Ask gh for the PR number for the given branch (or current branch if None)."""
     try:
-        r = subprocess.run(["gh", "pr", "view", "--json", "number,headRefOid"],
-                           capture_output=True, text=True, timeout=15,
+        cmd = ["gh", "pr", "view", "--json", "number,headRefOid"]
+        if branch:
+            cmd.append(branch)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15,
                            stdin=subprocess.DEVNULL)
         if r.returncode == 0:
             d = json.loads(r.stdout)
@@ -1244,9 +1246,10 @@ def main():
 
     branch = git("rev-parse", "--abbrev-ref", "HEAD").strip()
     slug = remote_slug()
-    pr, pr_head = (args.pr, None) if args.pr else detect_pr(branch)
+    view_branch = args.spec.removeprefix("origin/") if args.view and args.spec else None
+    pr, pr_head = (args.pr, None) if args.pr else detect_pr(view_branch or branch)
     if args.pr:
-        _, pr_head = detect_pr(branch)
+        _, pr_head = detect_pr(view_branch or branch)
 
     if args.pr and not args.spec and not args.view and not args.commit:
         try:
@@ -1298,11 +1301,13 @@ def main():
             range_label = view_ref or branch
             commit = git("rev-parse", view_ref or "HEAD", check=False).strip() or None
             ref_label = htmllib.escape(view_ref or branch)
+            ref_branch = view_ref.removeprefix("origin/") if view_ref else None
+            view_pr, _ = (args.pr, None) if args.pr else detect_pr(ref_branch or branch)
             target = f"Viewing <b>{ref_label}</b>."
-            if slug and pr:
-                target += f" PR: <b>{htmllib.escape(slug)}#{pr}</b>."
+            if slug and view_pr:
+                target += f" PR: <b>{htmllib.escape(slug)}#{view_pr}</b>."
             review = {"key": f"{slug or 'repo'}:view:{range_label}", "repo": slug,
-                      "pr": pr, "commit": commit, "summary": args.summary,
+                      "pr": view_pr, "commit": commit, "summary": args.summary,
                       "branch": branch}
             page = build_page(files, "Planning review", range_label, review,
                               target, True, view_mode=True)
