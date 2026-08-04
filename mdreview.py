@@ -338,6 +338,8 @@ def read_blob(ref, path):
 # ------------------------------------------------------------ block splitting
 
 FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+_DETAILS_OPEN = re.compile(r"<details(\s[^>]*)?>", re.IGNORECASE)
+_DETAILS_CLOSE = re.compile(r"</details>", re.IGNORECASE)
 
 
 def split_blocks(text):
@@ -348,7 +350,7 @@ def split_blocks(text):
     """
     if not text:
         return []
-    blocks, buf, fence, start = [], [], None, 1
+    blocks, buf, fence, start, details_depth = [], [], None, 1, 0
     for lineno, line in enumerate(text.splitlines(), 1):
         m = FENCE.match(line)
         if fence is None and m:
@@ -363,7 +365,10 @@ def split_blocks(text):
                 blocks.append((start, "\n".join(buf)))
                 buf, fence = [], None
             continue
-        if line.strip() == "":
+        details_depth += len(_DETAILS_OPEN.findall(line))
+        details_depth -= len(_DETAILS_CLOSE.findall(line))
+        details_depth = max(details_depth, 0)
+        if line.strip() == "" and details_depth == 0:
             if buf:
                 blocks.append((start, "\n".join(buf)))
                 buf = []
