@@ -1234,6 +1234,28 @@ def main():
     if args.pr:
         _, pr_head = detect_pr(branch)
 
+    if args.pr and not args.spec and not args.view and not args.commit:
+        try:
+            r = subprocess.run(
+                ["gh", "pr", "view", str(args.pr),
+                 "--json", "baseRefName,headRefName"],
+                capture_output=True, text=True, timeout=15,
+                stdin=subprocess.DEVNULL)
+            if r.returncode == 0:
+                d = json.loads(r.stdout)
+                base_ref = "origin/" + d["baseRefName"]
+                head_ref = "origin/" + d["headRefName"]
+                for ref_name, remote_ref in [
+                    (d["baseRefName"], base_ref),
+                    (d["headRefName"], head_ref),
+                ]:
+                    git("fetch", "origin",
+                        f"refs/heads/{ref_name}:refs/remotes/origin/{ref_name}",
+                        check=False)
+                args.spec = f"{base_ref}...{head_ref}"
+        except Exception:
+            pass
+
     if args.view:
         def render_view(view_ref):
             if view_ref and not view_ref.startswith("origin/"):
@@ -1341,19 +1363,18 @@ def main():
                   "commit": commit, "summary": args.summary, "branch": branch}
         page = build_page(files, heading, range_label, review, target, target_ok)
 
-    out = args.out
-    if not out:
-        fd, out = tempfile.mkstemp(prefix="mdreview-", suffix=".html")
-        os.close(fd)
-    with open(out, "w", encoding="utf-8") as fh:
-        fh.write(page)
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(page)
+        n_ok = sum(1 for f in files for b in f["blocks"] if b.get("can"))
+        print(f"{len(files)} file(s), {n_ok} commentable blocks -> {args.out}")
+        return
 
     n_ok = sum(1 for f in files for b in f["blocks"] if b.get("can"))
-    print(f"{len(files)} file(s), {n_ok} commentable blocks -> {out}")
+    print(f"{len(files)} file(s), {n_ok} commentable blocks")
     if pr and slug:
         print(f"review target: {slug}#{pr} @ {(commit or 'unpushed')[:9]}")
-    if not args.no_open:
-        webbrowser.open("file://" + os.path.abspath(out))
+    serve(lambda _: (page, None), no_open=args.no_open)
 
 
 if __name__ == "__main__":
