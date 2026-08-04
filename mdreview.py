@@ -525,6 +525,10 @@ aside{background:var(--panel);border-right:1px solid var(--line);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .file-btn .counts{font-family:var(--mono);font-size:10.5px;margin-top:3px;
   color:var(--ink-faint)}
+.chip{display:inline-block;font-size:10px;font-weight:600;border-radius:9px;
+  padding:2px 7px;margin-top:3px;letter-spacing:.02em}
+.chip.new{background:color-mix(in srgb,var(--add) 15%,transparent);
+  color:var(--add)}
 .file-btn.on .counts .p{color:var(--add)}
 .file-btn.on .counts .m{color:var(--del)}
 .file-btn .pin{position:absolute;right:12px;top:50%;transform:translateY(-50%);
@@ -1147,12 +1151,16 @@ def file_button(f, view_mode=False):
     name = htmllib.escape(parts[-1])
     dirs = htmllib.escape("/".join(parts[:-1]))
     dir_html = f'<span class="dir">{dirs}/</span>' if dirs else ""
-    counts = ('' if view_mode else
-              f'<div class="counts"><span class="p">+{f["added"]}</span> '
-              f'<span class="m">-{f["removed"]}</span></div>')
+    if f.get("status") == "A":
+        meta = '<span class="chip new">New</span>'
+    elif view_mode:
+        meta = ''
+    else:
+        meta = (f'<div class="counts"><span class="p">+{f["added"]}</span> '
+                f'<span class="m">-{f["removed"]}</span></div>')
     return (f'<button class="file-btn" type="button">'
             f'{dir_html}<span class="fname">{name}</span>'
-            f'{counts}<span class="pin"></span></button>')
+            f'{meta}<span class="pin"></span></button>')
 
 
 def build_page(files, heading, range_label, review, target_note, target_ok,
@@ -1325,14 +1333,19 @@ def main():
         stats = numstat(base, head)
         files = []
         for status, path in files_meta:
-            old = "" if status == "A" else (read_blob(base, path) or "")
-            new = "" if status == "D" else (read_blob(head, path) or "")
-            ok_lines = commentable_lines(base, head, path)
-            blocks, _, _ = build_file_view(old, new, ok_lines)
-            if status == "D":
+            if status == "A":
+                new = read_blob(head, path) or ""
+                blocks = (build_csv_blocks(new) if path.endswith(".csv")
+                          else build_view_blocks(new))
+            elif status == "D":
                 blocks = [{"state": "removed", "html": "<p><em>File deleted.</em></p>",
                            "kind": "prose", "line": 1, "end": 1, "side": "LEFT",
                            "anchor": None, "can": False}]
+            else:
+                old = read_blob(base, path) or ""
+                new = read_blob(head, path) or ""
+                ok_lines = commentable_lines(base, head, path)
+                blocks, _, _ = build_file_view(old, new, ok_lines)
             added, removed = stats.get(path, (0, 0))
             files.append({"path": path, "status": status, "blocks": blocks,
                           "added": added, "removed": removed})
