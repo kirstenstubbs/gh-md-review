@@ -1270,17 +1270,15 @@ def main():
         try:
             r = subprocess.run(
                 ["gh", "pr", "view", str(args.pr),
-                 "--json", "baseRefName,headRefName"],
+                 "--json", "baseRefName,headRefName,headRefOid"],
                 capture_output=True, text=True, timeout=15,
                 stdin=subprocess.DEVNULL)
             if r.returncode == 0:
                 d = json.loads(r.stdout)
                 base_ref = "origin/" + d["baseRefName"]
                 head_ref = "origin/" + d["headRefName"]
-                for ref_name, remote_ref in [
-                    (d["baseRefName"], base_ref),
-                    (d["headRefName"], head_ref),
-                ]:
+                pr_head = d.get("headRefOid") or pr_head
+                for ref_name in (d["baseRefName"], d["headRefName"]):
                     git("fetch", "origin",
                         f"refs/heads/{ref_name}:refs/remotes/origin/{ref_name}",
                         check=False)
