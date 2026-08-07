@@ -804,6 +804,17 @@ function paint(i){
   drawNotes();
   window.scrollTo({top:0});
   reindex();
+  inner.querySelectorAll('pre > code.language-mermaid').forEach(code=>{
+    const pre = code.parentElement;
+    const div = document.createElement('pre');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    pre.replaceWith(div);
+  });
+  if(window.mermaid && inner.querySelector('.mermaid')){
+    mermaid.initialize({startOnLoad:false,theme:'dark'});
+    mermaid.run({nodes: inner.querySelectorAll('.mermaid')});
+  }
 }
 
 /* ---------- comment editor ---------- */
@@ -1103,6 +1114,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 <title>__TITLE__</title>
 <style>__CSS__</style></head>
 <body class="__BODY_CLASS__">
