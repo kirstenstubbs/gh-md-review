@@ -561,7 +561,8 @@ main{min-width:0}
 .nav .pos{font-family:var(--mono);font-size:11px;color:var(--ink-faint);
   min-width:52px;text-align:center}
 
-.doc{padding:32px 40px 45vh}
+.doc{padding:32px 40px 45vh;width:100%}
+.doc-inner{width:100%}
 
 /* ---- blocks: line gutter + change ribbon ---- */
 .blk{position:relative;padding:3px 12px 3px 76px;margin:0 0 3px;
@@ -642,22 +643,20 @@ body.only-changes .blk.same{display:none}
   cursor:pointer;padding:0;transition:color .1s}
 .note .na button:hover{color:var(--accent)}
 
-/* ---- review tray ---- */
-.tray{position:fixed;right:24px;bottom:24px;z-index:20;width:420px;
-  max-width:calc(100vw - 48px);background:var(--panel);border:1px solid var(--line);
-  border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,.6);overflow:hidden}
-.tray.min{width:auto}
-.tray .th{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;
-  font-size:13px;font-weight:600;letter-spacing:-.01em}
+/* ---- review tray (sidebar) ---- */
+.tray{border-top:1px solid var(--line);overflow:hidden}
+.tray .th{display:flex;align-items:center;gap:8px;padding:12px 18px 10px;cursor:pointer;
+  font-size:11.5px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;
+  color:var(--ink-faint)}
+.tray .th svg{flex-shrink:0;opacity:.7}
 .tray .th .n{background:var(--accent);color:#0d1117;font-family:var(--mono);
   font-size:10.5px;font-weight:700;border-radius:9px;padding:2px 7px}
 .tray .th .chev{margin-left:auto;color:var(--ink-faint);font-size:10px}
-.tray .tb{border-top:1px solid var(--line);max-height:min(44vh,380px);overflow:auto;
-  padding:6px 0}
+.tray .tb{border-top:1px solid var(--line);padding:6px 0}
 .tray.min .tb,.tray.min .tf{display:none}
 .tray .grp{padding:8px 16px 4px;font-family:var(--mono);font-size:10px;
   color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em}
-.tray .itm{display:flex;gap:10px;padding:7px 16px;font-size:12.5px;cursor:pointer;
+.tray .itm{display:flex;gap:10px;padding:7px 16px;font-size:12px;cursor:pointer;
   border-left:2px solid transparent;align-items:baseline}
 .tray .itm:hover{background:var(--panel-2);border-left-color:var(--accent)}
 .tray .itm .l{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);
@@ -665,11 +664,11 @@ body.only-changes .blk.same{display:none}
 .tray .itm .l.warn{color:var(--warn)}
 .tray .itm .t{color:var(--ink-dim);overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;flex:1;min-width:0}
-.tray .tf{border-top:1px solid var(--line);padding:12px 16px;display:flex;
+.tray .tf{border-top:1px solid var(--line);padding:12px 14px;display:flex;
   gap:8px;flex-wrap:wrap;align-items:center}
 .tray .tf .hint{font-size:11px;color:var(--ink-faint);width:100%;line-height:1.55;
   margin-top:4px}
-.tray .empty{padding:18px 16px;font-size:12.5px;color:var(--ink-faint);line-height:1.6}
+.tray .empty{padding:14px 16px;font-size:12px;color:var(--ink-faint);line-height:1.6}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
   background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
   padding:9px 18px;border-radius:8px;font-size:13px;z-index:40;opacity:0;
@@ -722,7 +721,7 @@ body.view-mode .nav .pos{display:none}
   aside{position:static;height:auto}
   .doc{padding:20px 16px 40vh}
   .blk{padding-left:64px}
-  .tray{right:10px;left:10px;bottom:10px;width:auto}
+  .tray{border-top:1px solid var(--line)}
 }
 @media (prefers-reduced-motion:no-preference){
   .toast{transition:opacity .18s}
@@ -1131,6 +1130,22 @@ PAGE = """<!doctype html>
   </div>
   <div class="files-hd">__NFILES__</div>
   __FILEBTNS__
+  <div class="tray">
+    <div class="th">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M15.698 7.287 8.712.302a1.03 1.03 0 0 0-1.457 0l-1.45 1.45 1.84 1.84a1.223 1.223 0 0 1 1.55 1.56l1.773 1.774a1.224 1.224 0 0 1 1.267 2.025 1.226 1.226 0 0 1-2.002-1.334L8.58 5.965v4.334a1.226 1.226 0 1 1-1.008-.036V5.883a1.226 1.226 0 0 1-.666-1.608L5.093 2.44.302 7.288a1.03 1.03 0 0 0 0 1.456l6.986 6.986a1.03 1.03 0 0 0 1.457 0l6.953-6.953a1.03 1.03 0 0 0 0-1.49Z"/>
+      </svg>
+      Review <span class="n">0</span><span class="chev">&#9660;</span>
+    </div>
+    <div class="tb"></div>
+    <div class="tf">
+      <button class="btn pri" id="x-post">Post to GitHub</button>
+      <button class="btn" id="x-gh">gh command</button>
+      <button class="btn danger" id="x-clear">Clear</button>
+      <div class="hint">Comments are keyed to this diff and kept in your browser,
+        so a refresh or a re-run won't lose them.</div>
+    </div>
+  </div>
 </aside>
 <main>
   <div class="bar">
@@ -1145,18 +1160,6 @@ PAGE = """<!doctype html>
   </div>
   <div class="doc"><div class="doc-inner"></div></div>
 </main>
-</div>
-
-<div class="tray">
-  <div class="th">Review <span class="n">0</span><span class="chev">&#9660;</span></div>
-  <div class="tb"></div>
-  <div class="tf">
-    <button class="btn pri" id="x-post">Post to GitHub</button>
-    <button class="btn" id="x-gh">gh command</button>
-    <button class="btn danger" id="x-clear">Clear</button>
-    <div class="hint">Comments are keyed to this diff and kept in your browser,
-      so a refresh or a re-run won't lose them.</div>
-  </div>
 </div>
 <div class="toast"></div>
 <script>__JS__</script>
