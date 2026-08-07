@@ -561,12 +561,12 @@ main{min-width:0}
 .nav .pos{font-family:var(--mono);font-size:11px;color:var(--ink-faint);
   min-width:52px;text-align:center}
 
-.doc{padding:32px 40px 45vh;min-width:0;overflow-x:hidden}
-.doc-inner{width:100%;min-width:0}
+.doc{padding:32px 40px 45vh}
+.doc-inner{}
 
 /* ---- blocks: line gutter + change ribbon ---- */
 .blk{position:relative;padding:3px 12px 3px 76px;margin:0 0 3px;
-  border-radius:0 var(--r) var(--r) 0}
+  border-radius:0 var(--r) var(--r) 0;width:100%;box-sizing:border-box}
 .blk::before{content:"";position:absolute;left:62px;top:4px;bottom:4px;width:3px;
   border-radius:2px;background:transparent}
 .blk.added::before{background:var(--add-edge)}
@@ -691,8 +691,8 @@ body.only-changes .blk.same{display:none}
   border:1px solid var(--line);border-radius:4px;padding:.1em .35em}
 .doc pre{background:#111827;border:1px solid var(--line);border-radius:var(--r);
   padding:14px 16px;overflow:auto}
-.doc .mermaid{overflow-x:auto;display:block}
-.doc .mermaid svg{max-width:none;display:block}
+.doc .mermaid{display:block}
+.doc .mermaid svg{display:block}
 .doc pre code{background:none;border:0;padding:0;font-size:12.5px}
 .doc blockquote{margin:.8em 0;padding:.1em 0 .1em 16px;
   border-left:3px solid var(--line);color:var(--ink-dim)}
